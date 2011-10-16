@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 creationComplete="init()">
+	
+	<fx:Script>
+		<![CDATA[
+			
+			import mx.core.IVisualElement;
+			import mx.events.FlexEvent;
+			import mx.graphics.SolidColor;
+			
+			import spark.primitives.BitmapImage;
+			import spark.primitives.Rect;
+			
+			import uk.co.soulwire.display.colour.ColourUtils;
+			
+			private var m_imageLoader:Loader;
+			private var m_displayImage:BitmapImage;
+			private var m_inputImage:BitmapData;
+			private var m_paletteHolder:Group;
+			private var m_tolerance:Number;
+			private var m_colours:Array;
+			
+			private var cameraRoll:CameraRoll;
+			private var camera:CameraUI;
+			
+			private function init():void {
+				callLoader('assets/image.jpg');
+				
+				if ( CameraUI.isSupported ) {
+					camera = new CameraUI();
+					camera.addEventListener(MediaEvent.COMPLETE, onCameraReady);
+					camera.addEventListener(ErrorEvent.ERROR, onError);
+					status.text="CameraUI supported";
+				} else {
+					status.text="CameraUI NOT supported";
+				}
+				
+				if ( CameraRoll.supportsBrowseForImage ) {
+					cameraRoll = new CameraRoll();
+					cameraRoll.addEventListener(MediaEvent.SELECT,mediaSelected);
+					cameraRoll.addEventListener(ErrorEvent.ERROR, onError);
+				} else {
+					status.text="CameraRoll NOT supported";
+				}
+			}
+			
+			private function callLoader(imageLocation:String):void {
+				m_imageLoader = new Loader();
+				m_imageLoader.contentLoaderInfo.addEventListener( Event.COMPLETE, onImageLoadComplete );
+				m_imageLoader.load( new URLRequest( imageLocation ) );				
+			}
+			
+			private function onImageLoadComplete( event:Event ):void
+			{
+				initialise();
+			}
+			
+			private function initialise():void
+			{
+				m_tolerance = 0.015;
+				
+				var bmp:Bitmap = ( m_imageLoader.contentLoaderInfo.content ) as Bitmap;
+				
+				var maxWidth:Number = 350;
+				var maxHeight:Number = 350;
+				var imageWidth:Number = m_imageLoader.contentLoaderInfo.content.width;
+				var imageHeight:Number = m_imageLoader.contentLoaderInfo.content.height;
+				var ratio:Number = imageHeight/imageWidth;
+				if ( imageWidth > maxWidth ) {
+					imageWidth = maxWidth;
+					imageHeight = Math.round(imageWidth*ratio);
+				}
+				if ( imageHeight > maxHeight ) {
+					imageHeight = maxHeight;
+					imageWidth = Math.round(imageHeight/ratio);
+				}
+				
+				m_displayImage = new BitmapImage();
+				m_displayImage.x = 10;
+				m_displayImage.y = 10;
+				m_displayImage.width = imageWidth;
+				m_displayImage.height = imageHeight;
+				
+				
+				m_displayImage.source = bmp
+				
+				this.addElement( m_displayImage );
+				
+				m_inputImage = bmp.bitmapData;
+				
+				m_paletteHolder = new Group();
+				m_paletteHolder.x = 370;
+				m_paletteHolder.y = 10;
+				this.addElement( m_paletteHolder );
+				
+				createColourPalette();
+			}
+			
+			private function createColourPalette():void {
+				while ( m_paletteHolder.numElements > 0 ) m_paletteHolder.removeElementAt(0);
+				
+				//_______________________________________________________
+				//————————————————————————————— ColourUtils Example Usage
+				
+				m_colours = ColourUtils.colourPalette( m_inputImage, 32, m_tolerance );
+				
+				//_______________________________________________________
+				
+				trace( 'Colour palette created\n' );
+				for each( var colour:uint in m_colours ) trace( '0x' + colour.toString(16) );
+				
+				var row:int = 0;
+				var col:int = 0;
+				var box:Rect;
+				
+				for (var i:int = 0; i < m_colours.length; i++) 
+				{
+					box = new Rect();
+					
+					box.x = col * 25;
+					box.y = row * 25;
+					box.width = 24;
+					box.height = 24;
+					box.fill = new SolidColor( m_colours[i] );
+					
+					m_paletteHolder.addElement( box );
+					
+					if ( row++ == 7 )
+					{
+						row = 0;
+						col++;
+					}
+				}
+			}
+			
+			private function captureImage(event:MouseEvent):void {
+				camera.launch(MediaType.IMAGE);
+			}
+			
+			private function browseGallery(event:MouseEvent):void {
+				cameraRoll.browseForImage();
+			}
+			
+			private function onError(event:ErrorEvent):void {
+				trace("error has occurred");
+			}
+			
+			private function onCameraReady(event:MediaEvent):void {
+				var mediaPromise:MediaPromise = event.data;
+				status.text = mediaPromise.file.url;
+				callLoader(mediaPromise.file.url);
+			}
+			
+			private function mediaSelected(event:MediaEvent):void{
+				var mediaPromise:MediaPromise = event.data;
+				status.text = mediaPromise.file.url;
+				callLoader(mediaPromise.file.url);
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<s:Button x="10" y="370" label="Pick Photo" click="browseGallery(event)"/>
+	<s:Button x="180" y="370" label="Take Photo" click="captureImage(event)"/>
+	
+	<s:Label x="10" y="440" id="status"/>
+	
+</s:Group>
